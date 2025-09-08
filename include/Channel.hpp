@@ -33,20 +33,22 @@ public:
 
     int fd( )const { return fd_; }
     int events( )const { return events_; }
-    void setReadyEvents(int ready_events) { events_ = ready_events; }
+    
+    // 应该是：
+    void ReadyEvents(int ready_events) { ready_events_ = ready_events; }
 
     bool isNoneEvent( ) const { return events_ == kNoneEvent; }
 
+//注册事件用的
+    void enableReading( ) ; // 告诉系统监听fd上的读事件
+    void enableWriting( ) ; // 告诉系统开始监听这个fd上的写事件
+    void disableWriting( ) ; //停止监听写事件
+    void disableAll( ) ; // 停止监听所有事件
 
-    void enableReading( ) ; // 启用读取功能
-    void enableWriting( ) ; // 启用写入功能
-    void disableWriting( ) ; // 禁用写入功能    
-    void disableAll( ) ; // 禁用所有功能
 
-
-    bool isWriting( ) const { return events_ & kWriteEvent; }
-    bool isReading( ) const { return events_ & kReadEvent; }
-    bool isError( ) const { return events_ & kErrorEvent; }
+    bool isWriting( ) const { return events_ & kWriteEvent; }//检查当前是否启用了写事件监听
+    bool isReading( ) const { return events_ & kReadEvent; }//检查当前是否启用了读事件监听
+    bool isError( ) const { return events_ & kErrorEvent; }//检查当前是否启用了错误事件监听
 
     EventLoop* ownerLoop( ) const { return loop_; }
 

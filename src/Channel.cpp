@@ -6,13 +6,14 @@
 const int Channel::kNoneEvent = 0;
 const int Channel::kReadEvent = 1;
 const int Channel::kWriteEvent = 2;
+const int Channel::kErrorEvent = 4;
 
 // --- 构造函数 ---
 Channel::Channel(EventLoop* loop, int fd){
     loop_ = loop;
     fd_ = fd;
-    events_ = kNoneEvent;
-    ready_events_ = kNoneEvent;
+    events_ = kNoneEvent;//感兴趣的事件
+    ready_events_ = kNoneEvent;//事件的具体类型
     std::cout << "Channel created" << std::endl;
 }
 

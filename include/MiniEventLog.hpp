@@ -3,10 +3,10 @@
 #include <string>
 #include <mutex>
 
-#define log_debug(fmt , ...)MiniEventLog::getInstance().log(MiniEventLog::LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define log_info(fmt , ...)MiniEventLog::getInstance().log(MiniEventLog::LOG_LEVEL_INFO, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define log_warn(fmt , ...)MiniEventLog::getInstance().log(MiniEventLog::LOG_LEVEL_WARN, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define log_error(fmt , ...)MiniEventLog::getInstance().log(MiniEventLog::LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define log_debug(fmt , ...)MiniEventLog::getInstance()->log(MiniEventLog::LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define log_info(fmt , ...)MiniEventLog::getInstance()->log(MiniEventLog::LOG_LEVEL_INFO, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define log_warn(fmt , ...)MiniEventLog::getInstance()->log(MiniEventLog::LOG_LEVEL_WARN, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define log_error(fmt , ...)MiniEventLog::getInstance()->log(MiniEventLog::LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
 
 class MiniEventLog{
