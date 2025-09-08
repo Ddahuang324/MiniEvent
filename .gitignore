@@ -1,0 +1,41 @@
+# 编译输出
+build/
+bin/
+lib/
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# CMake生成的文件
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# 编译器和构建工具生成的文件
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# 调试信息
+*.dSYM/
+*.pdb
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
