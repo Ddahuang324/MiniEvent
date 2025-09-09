@@ -19,7 +19,7 @@ class Channel;
 class SelectMultiplexer : public IOMultiplexer {
 public:
     SelectMultiplexer();
-    ~SelectMultiplexer() = default;
+    ~SelectMultiplexer() ;
 
     void addChannel(Channel* channel) override;
     void removeChannel(Channel* channel) override;
