@@ -10,7 +10,10 @@ const int Channel::kErrorEvent = 4;
 
 // --- 构造函数 ---
 Channel::Channel(EventLoop* loop, int fd)
-    : loop_(loop), fd_(fd), events_(kNoneEvent), ready_events_(kNoneEvent) {
+    : loop_(loop), fd_(fd), events_(kNoneEvent), ready_events_(kNoneEvent),
+      timeout_(0),     // [新增] 初始化超时时间为 0
+      heap_index_(-1)  // [新增] 初始化堆索引为 -1
+{
     std::cout << "Channel created" << std::endl;
 }
 

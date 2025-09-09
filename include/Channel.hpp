@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <cstdint>
 
 
 class EventLoop;
@@ -30,14 +31,16 @@ public:
     void setWriteCallback(EventCallback cb) { write_callback_ = std::move(cb); }
     void setErrorCallback(EventCallback cb) { error_callback_ = std::move(cb); }
     void setCloseCallback(EventCallback cb) { close_callback_ = std::move(cb); }
+    // ================== [新增] 定时器相关 ==================
+    void setTimerCallback(EventCallback cb) { timer_callback_ = std::move(cb); }
+    // =======================================================
 
     int fd( )const { return fd_; }
     int events( )const { return events_; }
-    
-    // 应该是：
     void ReadyEvents(int ready_events) { ready_events_ = ready_events; }
-
     bool isNoneEvent( ) const { return events_ == kNoneEvent; }
+
+    
 
 //注册事件用的
     void enableReading( ) ; // 告诉系统监听fd上的读事件
@@ -51,6 +54,16 @@ public:
     bool isError( ) const { return events_ & kErrorEvent; }//检查当前是否启用了错误事件监听
 
     EventLoop* ownerLoop( ) const { return loop_; }
+
+    // ================== [新增] 定时器相关 ==================
+    // 获取绝对超时时间（毫秒）
+    uint64_t getTimeout() const { return timeout_; }
+    void setTimeout(uint64_t timeout) { timeout_ = timeout; }
+    
+    // 获取/设置在最小堆中的索引
+    int getHeapIndex() const { return heap_index_; }
+    void setHeapIndex(int index) { heap_index_ = index; }
+    // =======================================================
 
 private:
     void update(); // 更新事件掩码
@@ -67,5 +80,11 @@ private:
     EventCallback write_callback_;
     EventCallback error_callback_;
     EventCallback close_callback_; // 用于连接关闭的回调
+    
+    // ================== [新增] 定时器相关 ==================
+    EventCallback timer_callback_;   // 定时器回调
+    uint64_t timeout_;              // 绝对超时时间戳
+    int heap_index_;                // 在最小堆中的索引
+    // =======================================================
 
 };
