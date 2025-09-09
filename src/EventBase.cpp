@@ -1,116 +1,212 @@
 #include "../include/EventBase.hpp"
-#include "../include/Platform.hpp" // 引入平台相关的宏
-#include "../include/DataStructure/min_heap.hpp"
-#include "../include/InheritedFromIO_Multiplexer/Epoll_multiplexer.hpp" // 引入 Epoll 实现
-#include "../include/InheritedFromIO_Multiplexer/Select_multiplexer.hpp" // 引入 Select 实现
+#include "../include/InheritedFromIO_Multiplexer/Epoll_multiplexer.hpp"
+#include "../include/InheritedFromIO_Multiplexer/Select_multiplexer.hpp"
 #include "../include/MiniEventLog.hpp"
-#include "../include/Channel.hpp"
+#include "../include/Platform.hpp"
+#include <assert.h>
 #include <iostream>
-#include <memory>  // 添加memory头文件支持make_unique
-#include <chrono>  // 添加时间相关头文件
+#include <chrono>
 
-EventLoop::EventLoop():looping_(false),quit_(false){
-  min_heap_ctor(&timeheap_);  // 修正：使用min_heap_ctor而不是min_heap_elem_init
+using namespace MiniEvent;
 
-  #ifdef __linux__
-    // 在 Linux 环境下，优先使用 Epoll
-    io_multiplexer_.reset(new EpollMultiplexer());
-    std::cout << "Using Epoll multiplexer." << std::endl;
-#else
-    // 在其他系统（如 macOS, Windows）下，使用通用的 Select
-    io_multiplexer_.reset(new SelectMultiplexer());
-    std::cout << "Using Select multiplexer." << std::endl;
-#endif
+EventBase::EventBase() :
+    quit_(false)
+{
+    // 初始化最小堆
+    min_heap_ctor(&timer_heap_);
+    
+    #ifdef __linux__
+        // 在 Linux 环境下，优先使用 Epoll
+        io_multiplexer_.reset(new EpollMultiplexer());
+        std::cout << "Using Epoll multiplexer." << std::endl;
+    #else
+        // 在其他系统（如 macOS, Windows）下，使用通用的 Select
+        io_multiplexer_.reset(new SelectMultiplexer());
+        std::cout << "Using Select multiplexer." << std::endl;
+    #endif
 
-    // 3. 检查 IO Multiplexer 是否创建成功
+    // 检查 IO Multiplexer 是否创建成功
     if (!io_multiplexer_) {
-        // 在实际项目中，这里应该记录严重错误日志并可能导致程序中止
         log_error("Failed to create IO multiplexer.");
         abort();
     }
 }
 
-// 析构函数
-EventLoop::~EventLoop() {
-    // `io_multiplexer_` 是 std::unique_ptr，
-    // 它会在 EventLoop 对象销毁时自动调用所管理对象的析构函数，
-    // 也就是会自动 delete 指向的 Epoll_multiplexer 或 Select_multiplexer 实例。
-    // 这就是 RAII 的魔力，我们不需要在这里写任何清理代码。
-
-    // 我们需要手动清理最小堆
-    min_heap_dtor(&timeheap_);
+EventBase::~EventBase()
+{
+    // 清理最小堆
+    min_heap_dtor(&timer_heap_);
 }
 
-void EventLoop::loop() {   
-    looping_ = true;
-    quit_ = false;
-
-    std::cout << "EventLoop::loop() start." << std::endl;
-
-    while (!quit_){
-        // a. 在每一轮循环开始前，清空上一轮的激活 Channel 列表
+void EventBase::loop()
+{
+    std::cout << "EventBase loop start." << std::endl;
+    while (!quit_)
+    {
         active_channels_.clear();
 
-        // b. 调用 IO Multiplexer 等待事件，这是事件循环的核心
-        // dispatch 会阻塞，直到有事件发生或超时
-        // 激活的 Channel 会被填充到 active_channels_ 中
-        io_multiplexer_->dispatch(1000, active_channels_); // 修正：传递引用而不是指针
+        // [修改] 核心修改点 1: 计算 I/O 等待超时时间
+        // 根据最小堆的堆顶，计算出距离下一个定时器事件的毫秒数
+        uint64_t timeoutMs = getNextTimeout();
 
-        // c. 处理所有激活的 I/O 事件
-        for (Channel* channel : active_channels_) {
-            // 我们不关心具体是什么事件，只管调用 Channel 自己的事件处理函数
-            // Channel 会根据自身状态调用对应的回调（读、写、错误等）
+        // 调用 I/O 多路复用等待事件
+        io_multiplexer_->dispatch(static_cast<int>(timeoutMs), active_channels_);
+
+        // 处理 I/O 事件
+        for (Channel *channel : active_channels_)
+        {
             channel->handleEvent();
         }
 
-        // d. 处理到期的定时器事件
-        processExpiredTimers();
+        // [修改] 核心修改点 2: 处理到期的定时器事件
+        handleExpiredTimers();
     }
-    std::cout << "EventLoop " << this << " stop looping." << std::endl;
-    looping_ = false;
+    std::cout << "EventBase loop stop." << std::endl;
 }
 
-void EventLoop::quit() {
+void EventBase::quit()
+{
     quit_ = true;
-    // TODO: 如果 loop() 正阻塞在 dispatch()，可能需要唤醒它
-    // 可以考虑使用 eventfd 或 pipe 来实现唤醒机制
 }
 
-// 添加updateChannel方法实现
-void EventLoop::updateChannel(Channel* channel) {
-    // 委托给IO多路复用器来更新Channel
-    io_multiplexer_->updateChannel(channel);
+void EventBase::updateChannel(Channel *channel)
+{
+    int fd = channel->fd();
+    auto it = channels_.find(fd);
+
+    if (it == channels_.end())
+    {
+        // 新增 Channel - 需要先创建shared_ptr
+        auto shared_channel = std::shared_ptr<Channel>(channel, [](Channel*){});
+        channels_[fd] = shared_channel;
+        io_multiplexer_->addChannel(channel);
+    }
+    else
+    {
+        // 更新已有 Channel
+        assert(it->second.get() == channel);
+        io_multiplexer_->updateChannel(channel);
+    }
+
+    // [修改] 核心修改点 3: 如果设置了超时，则添加到定时器
+    if (channel->getTimeout() > 0)
+    {
+        addTimer(channels_[fd]);
+    }
 }
 
-// 获取当前时间（毫秒）
-long EventLoop::getCurrentTimeMs() const {
+void EventBase::removeChannel(Channel *channel)
+{
+    int fd = channel->fd();
+    assert(channels_.count(fd) && channels_[fd].get() == channel);
+
+    // [修改] 核心修改点 4: 如果在定时器中，也一并移除
+    if (channel->getHeapIndex() >= 0)
+    {
+        removeTimer(channels_[fd]);
+    }
+    
+    io_multiplexer_->removeChannel(channel);
+    channels_.erase(fd);
+}
+
+bool EventBase::hasChannel(Channel *channel)
+{
+    int fd = channel->fd();
+    auto it = channels_.find(fd);
+    return it != channels_.end() && it->second.get() == channel;
+}
+
+// [新增] 获取当前时间（毫秒）
+uint64_t EventBase::getCurrentTimeMs() const
+{
     auto now = std::chrono::steady_clock::now();
     auto duration = now.time_since_epoch();
     return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 }
 
-// 处理到期的定时器事件
-void EventLoop::processExpiredTimers() {
-    long current_time = getCurrentTimeMs();
+// [新增] 添加/更新定时器
+void EventBase::addTimer(std::shared_ptr<Channel> channel)
+{
+    // 创建一个event结构体来适配min_heap接口
+    struct event* timer_event = new struct event;
+    timer_event->ev_timeout = static_cast<long>(channel->getTimeout());
+    min_heap_elem_init(timer_event);
     
-    // 检查堆顶的定时器是否到期
-    while (!min_heap_empty(&timeheap_)) {
-        struct event* top_event = min_heap_top(&timeheap_);
-        
-        // 如果堆顶的定时器还没到期，说明后面的都没到期，直接退出
-        if (top_event->ev_timeout > current_time) {
+    // 如果 channel 已经在堆中，则需要先移除再添加
+    if (channel->getHeapIndex() >= 0)
+    {
+        removeTimer(channel);
+    }
+    
+    // 将定时器添加到最小堆
+    min_heap_push(&timer_heap_, timer_event);
+    channel->setHeapIndex(timer_event->min_heap_idx);
+}
+
+// [新增] 移除定时器
+void EventBase::removeTimer(std::shared_ptr<Channel> channel)
+{
+    if (channel->getHeapIndex() < 0) return;
+    
+    // 从最小堆中移除
+    // 注意：这里需要根据实际的min_heap实现来调整
+    // 当前的min_heap_erase需要event指针，这里需要适配
+    channel->setHeapIndex(-1);
+}
+
+// [新增] 获取下一个超时事件的等待时间（毫秒）
+uint64_t EventBase::getNextTimeout() const
+{
+    if (min_heap_empty(&timer_heap_))
+    {
+        // 如果没有定时器，可以永久等待 I/O
+        return static_cast<uint64_t>(-1);
+    }
+
+    struct event* next_timeout_event = min_heap_top(&timer_heap_);
+    uint64_t next_expire_time = static_cast<uint64_t>(next_timeout_event->ev_timeout);
+    uint64_t now = getCurrentTimeMs();
+
+    // 如果最近的定时器已经超时，则 dispatch 应该立即返回
+    return (next_expire_time > now) ? (next_expire_time - now) : 0;
+}
+
+// [新增] 处理所有到期的定时器
+void EventBase::handleExpiredTimers()
+{
+    uint64_t now = getCurrentTimeMs();
+    expired_timer_channels_.clear();
+
+    while (!min_heap_empty(&timer_heap_))
+    {
+        struct event* top_event = min_heap_top(&timer_heap_);
+        if (static_cast<uint64_t>(top_event->ev_timeout) > now)
+        {
+            // 堆顶的定时器还未到期，结束处理
             break;
         }
+
+        // 弹出已到期的定时器
+        struct event* expired_event = min_heap_pop(&timer_heap_);
         
-        // 弹出到期的定时器
-        struct event* expired_event = min_heap_pop(&timeheap_);
+        // 找到对应的Channel并执行回调
+        for (auto& pair : channels_)
+        {
+            auto channel = pair.second;
+            if (channel->getTimeout() == static_cast<uint64_t>(expired_event->ev_timeout))
+            {
+                auto callback = channel->getTimerCallback();
+                if (callback)
+                {
+                    callback();
+                }
+                channel->setHeapIndex(-1); // 重置堆索引
+                break;
+            }
+        }
         
-        // TODO: 这里应该调用定时器的回调函数
-        // 由于当前的event结构体还没有回调函数字段，
-        // 这里只是简单地打印一条消息
-        std::cout << "Timer expired at time: " << expired_event->ev_timeout << std::endl;
-        
-        // TODO: 在实际实现中，应该释放或重新安排定时器
-        // 这里暂时不做处理，避免内存泄漏问题
+        // 释放event内存
+        delete expired_event;
     }
 }
