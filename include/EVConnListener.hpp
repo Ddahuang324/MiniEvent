@@ -24,8 +24,7 @@ public:
 
 private:
     void handleAccept();
-    std::shared_ptr<Channel> channel_;
-    
+    std::unique_ptr<Channel> channel_;
     EventBase* loop_;
     NewConnectionCallback new_connection_callback_;
     bool listening_;
