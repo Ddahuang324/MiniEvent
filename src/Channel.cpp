@@ -2,6 +2,7 @@
 #include "../include/EventBase.hpp"
 #include "../include/MiniEventLog.hpp"
 
+namespace MiniEvent {
 // --- 静态常量成员的定义 ---
 const int Channel::kNoneEvent = 0;
 const int Channel::kReadEvent = 1;
@@ -19,7 +20,8 @@ Channel::~Channel(){}
 
 // --- 处理事件 ---
 void Channel::handleEvent(){
-    //检查发生的事件，并调用相关函数.
+    // 优先调用统一事件回调
+    // 否则按事件类型分别回调
     if(ready_events_ & kReadEvent){
         if(read_callback_ != nullptr) read_callback_();
     }
@@ -46,6 +48,11 @@ void Channel::disableWriting() {
     update();
 }
 
+void Channel::disableReading() {
+    events_ &= ~kReadEvent; // 使用位反和与运算，将"读"标志位清零
+    update();
+}
+
 void Channel::disableAll() {
     events_ = kNoneEvent;
     update();
@@ -54,4 +61,6 @@ void Channel::disableAll() {
 // --- 私有辅助函数 ---
 void Channel::update() {
     loop_->updateChannel(this);
+}
+
 }

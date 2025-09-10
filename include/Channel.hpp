@@ -6,11 +6,14 @@
 
 namespace MiniEvent {
     class EventBase;
-}
-
-class Channel : public std::enable_shared_from_this<Channel> {
+    class Channel : public std::enable_shared_from_this<Channel> {
 public:
+
     using EventCallback = std::function<void()>;
+
+    // 统一事件回调设置
+    void setEventCallback(EventCallback cb) { event_callback_ = std::move(cb); }
+    EventCallback getEventCallback() const { return event_callback_; }
 
     //事件掩码常量
     static const int kNoneEvent;
@@ -37,10 +40,12 @@ public:
     int fd( )const { return fd_; }
     int events( )const { return events_; }
     void ReadyEvents(int ready_events) { ready_events_ = ready_events; }
+    int getReadyEvents() const { return ready_events_; }
     bool isNoneEvent( ) const { return events_ == kNoneEvent; }
 
 //注册事件用的
     void enableReading( ) ; // 告诉系统监听fd上的读事件
+    void disableReading( ) ; // 停止监听读事件
     void enableWriting( ) ; // 告诉系统开始监听这个fd上的写事件
     void disableWriting( ) ; //停止监听写事件
     void disableAll( ) ; // 停止监听所有事件
@@ -75,6 +80,7 @@ private:
     EventCallback write_callback_;
     EventCallback error_callback_;
     EventCallback close_callback_; // 用于连接关闭的回调
+    EventCallback event_callback_; // 统一事件回调
     
     // ================== [新增] 定时器相关 ==================
     EventCallback timer_callback_;   // 定时器回调
@@ -82,3 +88,5 @@ private:
     int heap_index_;                // 在最小堆中的索引
     // =======================================================
 };
+}
+

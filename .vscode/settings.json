@@ -85,7 +85,10 @@
         "cassert": "cpp",
         "chrono": "cpp",
         "__availability": "cpp",
-        "version": "cpp"
+        "version": "cpp",
+        "regex": "cpp",
+        "compare": "cpp",
+        "cerrno": "cpp"
     },
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",
@@ -93,7 +96,11 @@
         "--header-insertion=iwyu",
         "--completion-style=detailed",
         "--function-arg-placeholders",
-        "--fallback-style=llvm"
+        "--fallback-style=llvm",
+        "--std=c++17"
     ],
-    "clangd.path": "/usr/bin/clangd"
+    "clangd.path": "/usr/bin/clangd",
+    "docwriter.language": "English",
+    "docwriter.style": "Auto-detect",
+    "docwriter.progress.trackFunctions": true
 }
