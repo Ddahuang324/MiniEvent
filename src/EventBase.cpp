@@ -1,6 +1,6 @@
 #include "../include/EventBase.hpp"
-#include "../include/InheritedFromIO_Multiplexer/Epoll_multiplexer.hpp"
 #include "../include/InheritedFromIO_Multiplexer/Select_multiplexer.hpp"
+#include "../include/MultiplexerSelector.hpp"
 #include "../include/MiniEventLog.hpp"
 #include "../include/Platform.hpp"
 #include <assert.h>
@@ -14,15 +14,8 @@ EventBase::EventBase() :
     // 初始化最小堆
     min_heap_ctor(&timer_heap_);
     
-    #ifdef __linux__
-        // 在 Linux 环境下，优先使用 Epoll
-        io_multiplexer_.reset(new EpollMultiplexer());
-        std::cout << "Using Epoll multiplexer." << std::endl;
-    #else
-        // 在其他系统（如 macOS, Windows）下，使用通用的 Select
-        io_multiplexer_.reset(new SelectMultiplexer());
-        std::cout << "Using Select multiplexer." << std::endl;
-    #endif
+    // 通过选择器基于平台与微基准选出最快实现
+    io_multiplexer_ = choose_best_multiplexer();
 
     // 检查 IO Multiplexer 是否创建成功
     if (!io_multiplexer_) {

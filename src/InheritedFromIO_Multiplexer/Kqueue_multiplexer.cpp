@@ -10,11 +10,13 @@
 
 KqueueMultiplexer::KqueueMultiplexer()
     : kq_fd_(kqueue()), events_(KInitEventListSize) {
-    if (kq_fd_ < 0) { log_error("kqueue create error"); }
+    if (kq_fd_ < 0) { log_error("[Kqueue] create error"); }
+    else { std::cout << "[Kqueue] created" << std::endl; }
 }
 
 KqueueMultiplexer::~KqueueMultiplexer() {
     close(kq_fd_);
+    std::cout << "[Kqueue] destroyed" << std::endl;
 }
 
 void KqueueMultiplexer::addChannel(Channel* channel) {
@@ -46,7 +48,7 @@ void KqueueMultiplexer::update(int operation, Channel* channel) {
 
     if (n > 0) {
         if (kevent(kq_fd_, kev, n, nullptr, 0, nullptr) < 0) {
-            log_error("kevent register error");
+            log_error("[Kqueue] kevent register error");
         }
     }
 }
@@ -76,7 +78,7 @@ int KqueueMultiplexer::dispatch(int timeout_ms, std::vector<Channel*>& active_ch
         }
     } else if (num_events < 0) {
         if (errno != EINTR) {
-            log_error("kevent wait error");
+            log_error("[Kqueue] kevent wait error");
         }
     }
     return num_events;

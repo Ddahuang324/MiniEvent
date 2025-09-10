@@ -8,19 +8,22 @@
 
 IOCPMultiplexer::IOCPMultiplexer() : iocp_handle_(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0)) {
     if (iocp_handle_ == NULL) {
-        log_error("CreateIoCompletionPort failed");
+        log_error("[IOCP] CreateIoCompletionPort failed");
+    } else {
+        std::cout << "[IOCP] created" << std::endl;
     }
 }
 
 IOCPMultiplexer::~IOCPMultiplexer() {
     if (iocp_handle_) CloseHandle(iocp_handle_);
+    std::cout << "[IOCP] destroyed" << std::endl;
 }
 
 void IOCPMultiplexer::addChannel(Channel* channel) {
     // Associate the socket handle with the IOCP. Here we only support sockets.
     HANDLE h = (HANDLE) (uintptr_t) channel->fd();
     if (CreateIoCompletionPort(h, iocp_handle_, (ULONG_PTR)channel, 0) == NULL) {
-        log_error("CreateIoCompletionPort associate failed");
+        log_error("[IOCP] CreateIoCompletionPort associate failed");
     }
     channels_[channel->fd()] = channel;
 }
@@ -42,13 +45,13 @@ int IOCPMultiplexer::dispatch(int timeout_ms, std::vector<Channel*>& active_chan
     if (!res) {
         DWORD err = GetLastError();
         if (err == WAIT_TIMEOUT) return 0;
-        log_error("GetQueuedCompletionStatus failed");
+        log_error("[IOCP] GetQueuedCompletionStatus failed");
         return -1;
     }
     Channel* ch = (Channel*)completionKey;
     if (ch) {
         // Mark as readable/writable based on bytesTransferred or overlapped specifics.
-        ch->setReadyEvents(Channel::kReadEvent);
+        ch->ReadyEvents(Channel::kReadEvent);
         active_channels.push_back(ch);
     }
     return 1;

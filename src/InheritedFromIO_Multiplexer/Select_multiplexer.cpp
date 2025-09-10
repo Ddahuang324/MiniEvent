@@ -14,11 +14,11 @@ SelectMultiplexer::SelectMultiplexer(): max_fd_(-1){
     FD_ZERO(&read_set_);
     FD_ZERO(&write_set_);
     FD_ZERO(&error_set_);
-    std::cout << "SelectMultiplexer created" << std::endl;
+    std::cout << "[Select] created" << std::endl;
 }
 
 SelectMultiplexer::~SelectMultiplexer() {
-    std::cout << "SelectMultiplexer destroyed" << std::endl;
+    std::cout << "[Select] destroyed" << std::endl;
 }
 
 void SelectMultiplexer::addChannel(Channel* channel) {
@@ -31,7 +31,7 @@ void SelectMultiplexer::addChannel(Channel* channel) {
     }
     // 保护：避免越界 FD_SETSIZE
     if (fd >= FD_SETSIZE) {
-        std::cerr << "[warn] SelectMultiplexer: fd=" << fd
+        std::cerr << "[Select][warn] fd=" << fd
                   << " >= FD_SETSIZE=" << FD_SETSIZE
                   << ", skip tracking in select()" << std::endl;
         return;
@@ -79,7 +79,7 @@ void SelectMultiplexer::updateChannel(Channel* channel) {
     }
 
     if (fd >= FD_SETSIZE) {
-        std::cerr << "[warn] SelectMultiplexer(update): fd=" << fd
+        std::cerr << "[Select][warn] update: fd=" << fd
                   << " >= FD_SETSIZE, skip" << std::endl;
         return;
     }
@@ -144,7 +144,7 @@ int SelectMultiplexer::dispatch(int timeout_ms, std::vector<Channel*>& active_ch
                             FD_CLR(fd, &write_set_);
                             FD_CLR(fd, &error_set_);
                             cleared = true;
-                            std::cerr << "[fix] cleared invalid fd=" << fd << " from select sets" << std::endl;
+                            std::cerr << "[Select][fix] cleared invalid fd=" << fd << " from select sets" << std::endl;
                         }
                     }
                 }
@@ -175,7 +175,7 @@ int SelectMultiplexer::dispatch(int timeout_ms, std::vector<Channel*>& active_ch
                     continue; // retry
                 }
             }
-            std::cerr << "select fatal: " << std::strerror(errno) << std::endl;
+            std::cerr << "[Select][fatal] select failed: " << std::strerror(errno) << std::endl;
             return -1;
         } else if (num_events == 0) {
             return 0;

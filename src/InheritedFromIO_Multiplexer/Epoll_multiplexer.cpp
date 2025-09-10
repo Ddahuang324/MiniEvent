@@ -9,12 +9,14 @@
 EpollMultiplexer::EpollMultiplexer() : 
     epoll_fd_(epoll_create1(EPOLL_CLOEXEC)) ,
     events_(KInitEventListSize) {
-        if (epoll_fd_ < 0)  {log_error("epoll_create1 error");}
+        if (epoll_fd_ < 0)  {log_error("[Epoll] epoll_create1 error");}
+        else { std::cout << "[Epoll] created" << std::endl; }
     }
 
 
 EpollMultiplexer::~EpollMultiplexer() {
     close(epoll_fd_);
+    std::cout << "[Epoll] destroyed" << std::endl;
 }
 
 void EpollMultiplexer::addChannel(Channel* channel) {
@@ -37,7 +39,7 @@ void EpollMultiplexer::update(int operation, Channel* channel) {
     event.data.ptr = channel;//将channel的指针作为data.ptr
     event.data.fd = channel->fd();
     if (epoll_ctl(epoll_fd_, operation, channel->fd(), &event) < 0) {
-        log_error("epoll_ctl error");
+        log_error("[Epoll] epoll_ctl error");
     }
 
 }
@@ -50,7 +52,7 @@ int EpollMultiplexer::dispatch(int timeout_ms,std::vector<Channel*>& active_chan
     if (num_events > 0) {
         for (int i = 0; i < num_events; ++i) {
             Channel* channel = static_cast<Channel*>(events_[i].data.ptr);
-            channel->setReadyEvents(events_[i].events);
+            channel->ReadyEvents(events_[i].events);
             active_channels.push_back(channel);
         }
         if (static_cast<size_t>(num_events) == events_.size()) {
@@ -61,7 +63,7 @@ int EpollMultiplexer::dispatch(int timeout_ms,std::vector<Channel*>& active_chan
     }else{
         if (saved_errno != EINTR) {
             errno = saved_errno;
-            log_error("epoll_wait error");
+            log_error("[Epoll] epoll_wait error");
         }
     }
     return num_events;
