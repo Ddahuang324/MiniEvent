@@ -9,8 +9,6 @@
 #include <map>
 #include <cstdint>
 
-namespace MiniEvent
-{
 
 // [新增] 为最小堆定义比较器
 // 比较两个 Channel 的绝对超时时间
@@ -50,11 +48,9 @@ private:
     bool quit_;
     std::unique_ptr<IOMultiplexer> io_multiplexer_;
     std::map<int, std::shared_ptr<Channel>> channels_;
-    std::vector<Channel *> active_channels_;
+    std::vector<Channel*> active_channels_;
 
     // [新增] 定时器管理数据结构
     min_heap_t timer_heap_;
     std::vector<std::shared_ptr<Channel>> expired_timer_channels_;
 };
-
-} // namespace MiniEvent

@@ -4,8 +4,6 @@
 #include <memory>
 #include <functional>
 
-namespace MiniEvent {
-
 class EventBase;
 class Channel;
 
@@ -23,7 +21,7 @@ public:
         kEOFEvent = 0x08
     };
 
-    BufferEvent(MiniEvent::EventBase* loop, int fd);
+    BufferEvent(EventBase* loop, int fd);
     ~BufferEvent();
 
     void setReadCallback(const ReadCallback& cb) { readCallback_ = cb; }
@@ -32,7 +30,7 @@ public:
     void setCloseCallback(const EventCallback& cb) { closeCallback_ = cb; }
 
     int fd() const { return fd_; }
-    MiniEvent::EventBase* getLoop() const { return loop_; }
+    EventBase* getLoop() const { return loop_; }
 
     void connectEstablished();
     void write(const void* data, size_t len);
@@ -60,4 +58,3 @@ private:
     EventCallback closeCallback_; // 连接关闭时回调
     EventCallback errorCallback_;
 };
-}

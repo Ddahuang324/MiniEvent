@@ -6,8 +6,6 @@
 
 
 
-
-
 SelectMultiplexer::SelectMultiplexer(): max_fd_(-1){
     FD_ZERO(&read_set_);
     FD_ZERO(&write_set_);

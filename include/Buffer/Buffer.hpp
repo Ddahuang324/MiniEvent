@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cassert>
 
-namespace MiniEvent {
+
 
 class Buffer {
 public:
@@ -106,4 +106,3 @@ private:
     size_t writeIndex_;
 };
 
-} // namespace MiniEvent

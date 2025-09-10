@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 
-namespace MiniEvent {
+
 
 BufferEvent::BufferEvent(EventBase* loop, int fd)
     : loop_(loop),

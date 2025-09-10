@@ -1,7 +1,7 @@
 #include "../include/Buffer/Buffer.hpp"
 #include <sys/uio.h>
 
-namespace MiniEvent {
+
    
 ssize_t Buffer::readFd(int fd, int* savedErrno) {
     //准备一个栈缓冲区
@@ -37,4 +37,3 @@ ssize_t Buffer::readFd(int fd, int* savedErrno) {
     } 
     return n;
 };
-}

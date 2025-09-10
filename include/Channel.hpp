@@ -4,7 +4,6 @@
 #include <memory>
 #include <cstdint>
 
-namespace MiniEvent {
     class EventBase;
     class Channel : public std::enable_shared_from_this<Channel> {
 public:
@@ -21,7 +20,7 @@ public:
     static const int kWriteEvent;
     static const int kErrorEvent;
 
-    Channel(MiniEvent::EventBase* loop, int fd);
+    Channel(EventBase* loop, int fd);
     ~Channel();
     
     //核心：当事件发生时，有EventLoop调用
@@ -54,7 +53,7 @@ public:
     bool isReading( ) const { return events_ & kReadEvent; }//检查当前是否启用了读事件监听
     bool isError( ) const { return events_ & kErrorEvent; }//检查当前是否启用了错误事件监听
 
-    MiniEvent::EventBase* ownerLoop( ) const { return loop_; }
+    EventBase* ownerLoop( ) const { return loop_; }
 
     // ================== [新增] 定时器相关 ==================
     // 获取绝对超时时间（毫秒）
@@ -69,7 +68,7 @@ public:
 private:
     void update(); // 更新事件掩码
     
-    MiniEvent::EventBase* loop_;
+    EventBase* loop_;
     const int fd_;
 
     int events_;
@@ -88,5 +87,5 @@ private:
     int heap_index_;                // 在最小堆中的索引
     // =======================================================
 };
-}
+
 

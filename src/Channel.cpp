@@ -2,7 +2,6 @@
 #include "../include/EventBase.hpp"
 #include "../include/MiniEventLog.hpp"
 
-namespace MiniEvent {
 // --- 静态常量成员的定义 ---
 const int Channel::kNoneEvent = 0;
 const int Channel::kReadEvent = 1;
@@ -10,7 +9,7 @@ const int Channel::kWriteEvent = 2;
 const int Channel::kErrorEvent = 4;
 
 // --- 构造函数 ---
-Channel::Channel(MiniEvent::EventBase* loop, int fd)
+Channel::Channel(EventBase* loop, int fd)
     : loop_(loop), fd_(fd), events_(0), ready_events_(0), 
       timeout_(0), heap_index_(-1) {
 }
@@ -63,4 +62,3 @@ void Channel::update() {
     loop_->updateChannel(this);
 }
 
-}

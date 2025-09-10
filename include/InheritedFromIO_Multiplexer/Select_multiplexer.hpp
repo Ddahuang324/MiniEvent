@@ -12,10 +12,6 @@
 #endif
 
 
-
-class Channel;
-
-
 class SelectMultiplexer : public IOMultiplexer {
 public:
     SelectMultiplexer();

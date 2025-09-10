@@ -7,7 +7,6 @@
 #include <iostream>
 #include <chrono>
 
-using namespace MiniEvent;
 
 EventBase::EventBase() :
     quit_(false)
@@ -31,6 +30,7 @@ EventBase::EventBase() :
         abort();
     }
 }
+
 
 EventBase::~EventBase()
 {
