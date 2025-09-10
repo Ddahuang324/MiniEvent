@@ -88,7 +88,8 @@
         "version": "cpp",
         "regex": "cpp",
         "compare": "cpp",
-        "cerrno": "cpp"
+        "cerrno": "cpp",
+        "thread": "cpp"
     },
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",
