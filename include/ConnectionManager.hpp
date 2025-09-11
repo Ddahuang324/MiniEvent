@@ -1,6 +1,8 @@
 #pragma once
 
 #include <atomic>
+#include <mutex>
+#include <unordered_set>
 
 class ConnectionManager {
 
@@ -27,6 +29,11 @@ public:
     long long getTimeoutResponse() const;
     // 获取当前连接数
     unsigned int getConnections() const;
+    // Register/unregister actual connection identifiers (fd) for leak detection
+    void registerConnection(int fd);
+    void unregisterConnection(int fd);
+    unsigned int getRegisteredConnectionsCount() const;
+    bool hasRegisteredConnection(int fd) const;
     
 private:
     // 私有构造函数，防止外部实例化
@@ -39,9 +46,12 @@ private:
     ConnectionManager& operator=(const ConnectionManager&) = delete;
 
      // 使用原子类型确保线程安全
-    std::atomic<long long> _total_request;
-    std::atomic<long long> _total_response;
-    std::atomic<long long> _timeout_response;
-    std::atomic<unsigned int> _connections;
+    std::atomic<long long> _total_request{0};
+    std::atomic<long long> _total_response{0};
+    std::atomic<long long> _timeout_response{0};
+    std::atomic<unsigned int> _connections{0};
+    // Registered connection fds for leak detection
+    mutable std::mutex _reg_mutex;
+    std::unordered_set<int> _registered;
 
 };

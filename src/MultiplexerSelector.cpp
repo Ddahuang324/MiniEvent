@@ -23,19 +23,39 @@ namespace {
         std::function<std::unique_ptr<IOMultiplexer>()> factory;
     };
 
-    // 运行一个非常轻量的微基准：连续 N 次 dispatch(0)；
-    // 因为没有 fd/事件，dispatch 应当立即返回；用来衡量基础调用开销。
-    double micro_bench(IOMultiplexer& mux, int rounds = 200) {
+    // 运行一个更稳健的微基准：多次 trial，每次 trial 连续 rounds 次 dispatch(0)，取每个 trial 的平均值，最终返回这些 trial 的中位数。
+    // 这样可以减少瞬时调度噪声与突发干扰的影响。
+    double micro_bench(IOMultiplexer& mux, int rounds = 100, int trials = 3) {
         std::vector<Channel*> sink; // 不使用
         using clock = std::chrono::steady_clock;
-        auto t0 = clock::now();
-        for (int i = 0; i < rounds; ++i) {
-            mux.dispatch(0, sink);
-            sink.clear();
+        std::vector<double> trial_scores;
+        trial_scores.reserve(trials);
+
+        for (int t = 0; t < trials; ++t) {
+            try {
+                auto t0 = clock::now();
+                for (int i = 0; i < rounds; ++i) {
+                    // dispatch may throw or behave unexpectedly on some platforms; guard it
+                    mux.dispatch(0, sink);
+                    sink.clear();
+                }
+                auto t1 = clock::now();
+                auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+                trial_scores.push_back(static_cast<double>(ns) / rounds);
+            } catch (const std::exception &ex) {
+                log_warn("micro_bench: candidate dispatch threw exception: %s", ex.what());
+                // push a very large score to deprioritize this candidate
+                trial_scores.push_back(std::numeric_limits<double>::infinity());
+            } catch (...) {
+                log_warn("micro_bench: candidate dispatch threw unknown exception");
+                trial_scores.push_back(std::numeric_limits<double>::infinity());
+            }
         }
-        auto t1 = clock::now();
-        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-        return static_cast<double>(ns) / rounds; // 每次调用平均纳秒
+
+        // 取中位数以减小异常 trial 的影响
+        std::sort(trial_scores.begin(), trial_scores.end());
+        if (trial_scores.empty()) return std::numeric_limits<double>::infinity();
+        return trial_scores[trial_scores.size() / 2];
     }
 }
 
@@ -63,15 +83,18 @@ std::unique_ptr<IOMultiplexer> choose_best_multiplexer() {
         try {
             auto mux = c.factory();
             if (!mux) continue;
-            double score = micro_bench(*mux);
-            std::cout << "Mux candidate " << c.name << ": avg " << score << " ns/dispatch(0)" << std::endl;
+            double score = micro_bench(*mux, /*rounds=*/100, /*trials=*/3);
+            log_info("Mux candidate %s: median %f ns/dispatch(0)", c.name, score);
             if (score < best_score) {
                 best_score = score;
                 best = std::move(mux);
                 best_name = c.name;
             }
+        } catch (const std::exception &ex) {
+            log_warn("Multiplexer candidate %s failed to initialize: %s", c.name, ex.what());
+            continue;
         } catch (...) {
-            // 某些实现可能在当前平台不可用或初始化失败
+            log_warn("Multiplexer candidate %s failed to initialize with unknown error", c.name);
             continue;
         }
     }

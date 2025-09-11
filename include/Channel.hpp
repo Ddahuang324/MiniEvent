@@ -12,7 +12,7 @@ public:
 
     // 统一事件回调设置
     void setEventCallback(EventCallback cb) { event_callback_ = std::move(cb); }
-    EventCallback getEventCallback() const { return event_callback_; }
+        EventCallback getEventCallback() const;
 
     //事件掩码常量
     static const int kNoneEvent;
@@ -31,6 +31,8 @@ public:
     void setWriteCallback(EventCallback cb) { write_callback_ = std::move(cb); }
     void setErrorCallback(EventCallback cb) { error_callback_ = std::move(cb); }
     void setCloseCallback(EventCallback cb) { close_callback_ = std::move(cb); }
+    // 清除所有回调，供拥有者在销毁时调用以防止悬空指针触发回调
+    void clearCallbacks() { read_callback_ = EventCallback(); write_callback_ = EventCallback(); error_callback_ = EventCallback(); close_callback_ = EventCallback(); event_callback_ = EventCallback(); timer_callback_ = EventCallback(); }
     // ================== [新增] 定时器相关 ==================
     void setTimerCallback(EventCallback cb) { timer_callback_ = std::move(cb); }
     EventCallback getTimerCallback() const { return timer_callback_; }

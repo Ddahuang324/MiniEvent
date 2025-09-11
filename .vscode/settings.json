@@ -91,7 +91,13 @@
         "cerrno": "cpp",
         "thread": "cpp",
         "fstream": "cpp",
-        "deque": "cpp"
+        "deque": "cpp",
+        "any": "cpp",
+        "condition_variable": "cpp",
+        "forward_list": "cpp",
+        "list": "cpp",
+        "set": "cpp",
+        "unordered_set": "cpp"
     },
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",

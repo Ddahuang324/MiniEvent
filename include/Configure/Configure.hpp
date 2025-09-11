@@ -6,22 +6,27 @@
 
 
 class Configure {
-
 public:
-
-    Configure(const std::string& configFile );
+    Configure(const std::string& configFile);
     ~Configure() = default;
 
-    std::string get(const std::string& key, const std::string& defaultValue = "") ;
-
-    // 新增：提供加载状态的只读访问接口
     bool isLoaded() const { return isLoaded_; }
 
-
+    // Type-safe getters
+    int getPort() const { return port_; }
+    std::string getLogLevel() const { return logLevel_; }
+    int getTimeout() const { return timeout_; }
 
 private:
-    bool load (const std::string& configFile);
+    bool load(const std::string& configFile);
+    std::string get(const std::string& key, const std::string& defaultValue = "");
+
     std::map<std::string, std::string> configMap_;
     bool isLoaded_;
+
+    // Parsed values
+    int port_;
+    std::string logLevel_;
+    int timeout_;
 };
 

@@ -1,4 +1,5 @@
 #include "../include/ConnectionManager.hpp"
+#include <algorithm>
 
 ConnectionManager& ConnectionManager::getInstance() {
     static ConnectionManager instance;
@@ -39,4 +40,24 @@ long long ConnectionManager::getTimeoutResponse() const {
 
 unsigned int ConnectionManager::getConnections() const {
     return _connections.load();
+}
+
+void ConnectionManager::registerConnection(int fd) {
+    std::lock_guard<std::mutex> lg(_reg_mutex);
+    _registered.insert(fd);
+}
+
+void ConnectionManager::unregisterConnection(int fd) {
+    std::lock_guard<std::mutex> lg(_reg_mutex);
+    _registered.erase(fd);
+}
+
+unsigned int ConnectionManager::getRegisteredConnectionsCount() const {
+    std::lock_guard<std::mutex> lg(_reg_mutex);
+    return static_cast<unsigned int>(_registered.size());
+}
+
+bool ConnectionManager::hasRegisteredConnection(int fd) const {
+    std::lock_guard<std::mutex> lg(_reg_mutex);
+    return _registered.find(fd) != _registered.end();
 }

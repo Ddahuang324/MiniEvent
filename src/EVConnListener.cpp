@@ -37,7 +37,7 @@ EVConnListener::~EVConnListener()
     // The listening socket FD is managed by the channel, which closes it.
 }
 
-bool EVConnListener::listen(int port) {
+int EVConnListener::listen(int port) {
     if (listening_) {
     log_warn("Listener is already listening.");
         return false;
@@ -66,13 +66,13 @@ bool EVConnListener::listen(int port) {
     if (::bind(listenFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
     log_error("Failed to bind socket.");
         ::close(listenFd);
-        return false;
+        return -1;
     }
 
     if (::listen(listenFd, SOMAXCONN) < 0) {
     log_error("Failed to listen on socket.");
         ::close(listenFd);
-        return false;
+        return -1;
     }
 
     // Update the channel with the new, valid listening socket FD.
@@ -87,7 +87,7 @@ bool EVConnListener::listen(int port) {
 
     listening_ = true;
     log_info("Server listening on port %d", port);
-    return true;
+    return 0;
 }
 
 int EVConnListener::getfd() const {

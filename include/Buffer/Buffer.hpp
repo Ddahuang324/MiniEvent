@@ -12,6 +12,8 @@ class Buffer {
 public:
     static const size_t kCheapPrepend = 8;
     static const size_t kInitialSize = 1024;
+    // Maximum buffer size (1MB)
+    static const size_t kMaxSize = 1024 * 1024;
 
     explicit Buffer(size_t initialSize = kInitialSize)
         : buffer_(kCheapPrepend + initialSize),
@@ -63,6 +65,9 @@ public:
         hasWritten(len);
     }
 
+    // convenience overload
+    void append(const std::string& data) { append(data.data(), data.size()); }
+
     // 确保有足够的可写空间
     void ensureWritableBytes(size_t len) {
         if (writableBytes() < len) {
@@ -79,6 +84,12 @@ public:
 
     // 从文件描述符读取数据
     ssize_t readFd(int fd, int* savedErrno);
+
+    // 返回 peek 指向的数据片段的字符串表示（不修改索引）
+    std::string peekAsString(size_t len) const {
+        assert(len <= readableBytes());
+        return std::string(peek(), len);
+    }
 
     // 在可读数据中查找子串，返回指针（指向首次出现位置），未找到返回 nullptr
     const char* find_str(const char* needle) const {
@@ -98,22 +109,7 @@ private:
     char* begin() { return &*buffer_.begin(); }
     const char* begin() const { return &*buffer_.begin(); }
 
-    // 为写入腾出空间
-    void makeSpace(size_t len) {
-        // 当 [可写空间] + [已读过的空间] < 需要的空间时，必须扩容
-        if (writableBytes() + prependableBytes() < len + kCheapPrepend) {
-            buffer_.resize(writeIndex_ + len);
-        } else {
-            // 否则，只需将可读数据前移，复用 prependable 空间
-            size_t readable = readableBytes();
-            std::copy(begin() + readIndex_,
-                      begin() + writeIndex_,
-                      begin() + kCheapPrepend);
-            readIndex_ = kCheapPrepend;
-            writeIndex_ = readIndex_ + readable;
-            assert(readable == readableBytes());
-        }
-    }
+    void makeSpace(size_t len);
 
 private:
     std::vector<char> buffer_;

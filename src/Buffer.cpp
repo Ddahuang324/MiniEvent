@@ -37,3 +37,31 @@ ssize_t Buffer::readFd(int fd, int* savedErrno) {
     } 
     return n;
 };
+
+void Buffer::makeSpace(size_t len) {
+    if (writableBytes() + prependableBytes() < len + kCheapPrepend) {
+        // 空间不足，需要扩容，检查是否会超过最大值：kMaxSize
+        size_t newSize = writeIndex_ + len;
+        if (newSize > kMaxSize) {
+            // 超过最大限制：拒绝扩容，尽可能抛出或截断
+            // 这里选择将 len 截断为允许的最大可写大小
+            size_t allowed = (kMaxSize > writeIndex_) ? (kMaxSize - writeIndex_) : 0;
+            if (allowed == 0) {
+                // 无法再写入任何数据
+                throw std::length_error("Buffer maximum size exceeded (1MB)");
+            }
+            buffer_.resize(kMaxSize);
+        } else {
+            buffer_.resize(newSize);
+        }
+    } else {
+        // 空间足够，移动数据
+        size_t readable = readableBytes();
+        std::copy(begin() + readIndex_,
+                  begin() + writeIndex_,
+                  begin() + kCheapPrepend);
+        readIndex_ = kCheapPrepend;
+        writeIndex_ = readIndex_ + readable;
+        assert(readable == readableBytes());
+    }
+}

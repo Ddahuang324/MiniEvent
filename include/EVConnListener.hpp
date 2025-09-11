@@ -18,7 +18,7 @@ public:
     EVConnListener(const EVConnListener&) = delete;
     EVConnListener& operator=(const EVConnListener&) = delete;
 
-    bool listen(int port);
+    int listen(int port);
 
     int getfd() const;
 

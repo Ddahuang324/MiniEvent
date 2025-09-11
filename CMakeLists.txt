@@ -14,6 +14,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # 导出编译命令用于IDE支持
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Enable testing and optionally pull in GoogleTest for future unit tests
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        release-1.12.1
+)
+# Avoid overriding user's compiler/linker options
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+enable_testing()
+
 # 设置编译选项
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic")
@@ -21,17 +33,38 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 endif()
 
+# Include tests directory to build test/smoke helpers
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
+    add_subdirectory(tests)
+endif()
+
 # ================== Tests ==================
+# To integrate GoogleTest:
+# 1. Add FetchContent logic for GoogleTest
+# 2. Use find_package(GTest REQUIRED)
+# 3. Link with GTest::gtest_main
+#
+# Example:
+# FetchContent_Declare(
+#   googletest
+#   GIT_REPOSITORY https://github.com/google/googletest.git
+#   GIT_TAG    release-1.12.1
+# )
+# FetchContent_MakeAvailable(googletest)
+# find_package(GTest REQUIRED)
+# add_executable(MyTests ...)
+# target_link_libraries(MyTests GTest::gtest_main)
+
 # 添加测试可执行文件，验证库行为
 add_executable(${PROJECT_NAME}_tests
-    tests/test_mini_event.cpp
+    tests/unit/test_mini_event.cpp
 )
 target_include_directories(${PROJECT_NAME}_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${PROJECT_NAME}_tests ${PROJECT_NAME})
 
 # 单独的单元测试目标，覆盖轻量单元测试
 add_executable(${PROJECT_NAME}_unit_tests
-    tests/test_configure.cpp
+    tests/unit/test_configure.cpp
 )
 target_include_directories(${PROJECT_NAME}_unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${PROJECT_NAME}_unit_tests ${PROJECT_NAME})
@@ -66,10 +99,24 @@ if(SOURCES)
         target_link_libraries(${PROJECT_NAME}_app ${PROJECT_NAME})
     endif()
 
+    # Demo: minimal runtime demo
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/demo/main.cpp")
+        add_executable(minievent_demo src/demo/main.cpp)
+        target_include_directories(minievent_demo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+        target_link_libraries(minievent_demo ${PROJECT_NAME})
+    endif()
+
     # Demo: http request
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/demo_http_request.cpp")
         add_executable(demo_http_request demo_http_request.cpp)
         target_link_libraries(demo_http_request ${PROJECT_NAME})
         target_include_directories(demo_http_request PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    endif()
+
+    # Smoke 测试：端到端 HTTPServer
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_smoke_http_server.cpp")
+        add_executable(${PROJECT_NAME}_smoke tests/test_smoke_http_server.cpp)
+        target_include_directories(${PROJECT_NAME}_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+        target_link_libraries(${PROJECT_NAME}_smoke ${PROJECT_NAME})
     endif()
 endif()

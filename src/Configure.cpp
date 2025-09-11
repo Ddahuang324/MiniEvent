@@ -1,6 +1,7 @@
 #include "../include/Configure/Configure.hpp"
 #include <fstream>
 #include <iostream>
+#include "../include/MiniEventLog.hpp"
 
 
 static void trim(std::string& str) {
@@ -14,20 +15,21 @@ static void trim(std::string& str) {
 
 
 Configure::Configure(const std::string& configFile)
-    : isLoaded_(false) {
-    // 尝试加载配置文件
+    : isLoaded_(false), port_(0), timeout_(0) {
+    // 尝试加载配置文件，若文件缺失或解析失败则抛出异常（测试依赖）
     if (!load(configFile)) {
-        std::cout << "Failed to open configure file: " << configFile << std::endl;
-        isLoaded_ = false;
-    } else {
-        isLoaded_ = true;
+        log_error("Failed to load or parse configure file: %s", configFile.c_str());
+        throw std::runtime_error("Failed to load configuration");
     }
 }
 
 
 bool Configure::load(const std::string& configFile) {
     std::ifstream ifs(configFile.c_str());
-    if (!ifs.is_open()) return false;
+    if (!ifs.is_open()) {
+        log_error("Configuration file not found: %s", configFile.c_str());
+        return false;
+    }
 
     std::string line;
 
@@ -48,6 +50,38 @@ bool Configure::load(const std::string& configFile) {
             configMap_[key] = value;
         }
     }
+
+    // --- T027: Parse specific values ---
+    // Port (required)
+    std::string port_str = get("port");
+    if (port_str.empty()) {
+        log_error("'port' is a required configuration.");
+        return false;
+    }
+    try {
+        port_ = std::stoi(port_str);
+    } catch (const std::exception& e) {
+        log_error("Invalid port number '%s'", port_str.c_str());
+        return false;
+    }
+    // Validate port range
+    if (port_ <= 0 || port_ > 65535) {
+        log_error("Port out of valid range (1-65535): %d", port_);
+        return false;
+    }
+
+    // Log Level (with default)
+    logLevel_ = get("log_level", "INFO");
+
+    // Timeout (with default)
+    std::string timeout_str = get("timeout_seconds", "60");
+    try {
+        timeout_ = std::stoi(timeout_str);
+    } catch (const std::exception& e) {
+        log_warn("Invalid timeout_seconds '%s', using default 60", timeout_str.c_str());
+        timeout_ = 60;
+    }
+
     return true;
 }
 

@@ -21,6 +21,9 @@ public:
 public:
     static MiniEventLog* getInstance();
     void log(LogLevel level, const char* filename, int line, const char* fmt , ...);
+    // Allow tests to inject an output stream (defaults to std::cout)
+    void setOutputStream(std::ostream* os) { output_stream_ = os; }
+    std::ostream* getOutputStream() const { return output_stream_; }
 private:
     MiniEventLog() = default;
     ~MiniEventLog() = default;
@@ -28,4 +31,5 @@ private:
     MiniEventLog& operator=(const MiniEventLog&) = delete;
     
     std::mutex m_mutex;
+    std::ostream* output_stream_ = &std::cout;
 };

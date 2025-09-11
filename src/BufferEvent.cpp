@@ -17,8 +17,13 @@ BufferEvent::BufferEvent(EventBase* loop, int fd)
     }
 
 BufferEvent::~BufferEvent() {
+  // 在析构之前，先清除 channel 上的回调以避免被事件循环误调用
+  if (channel_) {
+    channel_->clearCallbacks();
+  }
+
   if(channel_ -> isNoneEvent()) {
-      loop_->removeChannel(channel_.get());
+    loop_->removeChannel(channel_.get());
   }
   ::close(fd_);
 }
@@ -121,10 +126,14 @@ void BufferEvent::write(const void* data, size_t len) {
 }
 
 void BufferEvent::handleClose() {
-    channel_->disableAll(); // 停止所有事件监听
-    if (closeCallback_) {
-        closeCallback_(shared_from_this());
-    }
+  // 停止所有事件监听并清除回调，随后调用外部 closeCallback
+  channel_->disableAll(); // 停止所有事件监听
+  // 先交换回调，防止回调中再次触发删除导致双重调用
+  auto cb = closeCallback_;
+  closeCallback_ = nullptr;
+  if (cb) {
+    cb(shared_from_this());
+  }
 }
 
 void BufferEvent::handleError() {

@@ -5,6 +5,7 @@
 #include "DataStructure/min_heap.hpp"
 #include "Platform.hpp"
 #include <memory>
+#include <functional>
 #include <vector>
 #include <map>
 #include <cstdint>
@@ -37,6 +38,9 @@ public:
     void removeChannel(Channel *channel);
     bool hasChannel(Channel *channel);
 
+    // Test hook: observer invoked with fd when a connection times out.
+    void setTimeoutObserver(std::function<void(int)> observer);
+
 private:
     // [新增] 定时器相关私有方法
     void addTimer(std::shared_ptr<Channel> channel);
@@ -53,4 +57,5 @@ private:
     // [新增] 定时器管理数据结构
     min_heap_t timer_heap_;
     std::vector<std::shared_ptr<Channel>> expired_timer_channels_;
+    std::function<void(int)> timeout_observer_;
 };

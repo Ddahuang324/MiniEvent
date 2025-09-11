@@ -3,6 +3,7 @@
 #include "../include/MultiplexerSelector.hpp"
 #include "../include/MiniEventLog.hpp"
 #include "../include/Platform.hpp"
+#include "../include/ConnectionManager.hpp"
 #include <assert.h>
 #include <iostream>
 #include <chrono>
@@ -110,6 +111,10 @@ bool EventBase::hasChannel(Channel *channel)
     return it != channels_.end() && it->second.get() == channel;
 }
 
+void EventBase::setTimeoutObserver(std::function<void(int)> observer) {
+    timeout_observer_ = std::move(observer);
+}
+
 // [新增] 获取当前时间（毫秒）
 uint64_t EventBase::getCurrentTimeMs() const
 {
@@ -182,23 +187,50 @@ void EventBase::handleExpiredTimers()
 
         // 弹出已到期的定时器
         struct event* expired_event = min_heap_pop(&timer_heap_);
-        
+
         // 找到对应的Channel并执行回调
-        for (auto& pair : channels_)
+        for (auto it = channels_.begin(); it != channels_.end(); ++it)
         {
-            auto channel = pair.second;
+            auto channel = it->second;
             if (channel->getTimeout() == static_cast<uint64_t>(expired_event->ev_timeout))
             {
                 auto callback = channel->getTimerCallback();
                 if (callback)
                 {
+                    // 回调（例如 HttpRequest::onTimeout）通常会记录日志或做清理
                     callback();
                 }
-                channel->setHeapIndex(-1); // 重置堆索引
+
+                // 额外的全局超时处理：记录日志、统计并尝试安全关闭连接
+                int fd = channel->fd();
+                if (fd >= 0) {
+                    // 记录超时事件
+                    log_warn("Connection fd %d timed out, closing.", fd);
+
+                    // 增加全局超时计数
+                    ConnectionManager::getInstance().timeoutResponseIncrement();
+
+                    // 如果注册了观察者，通知它（测试钩子）
+                    if (timeout_observer_) {
+                        try { timeout_observer_(fd); } catch (...) { }
+                    }
+
+                    // 尝试向对端发送 FIN，触发套接字状态变化
+                    ::shutdown(fd, SHUT_WR);
+
+                    // 从 EventBase 中移除该 channel（包括从 IO multiplexer 中移除）
+                    // 注意：removeChannel 会处理定时器与 channel map 清理
+                    // 使用当前 channel 指针进行移除
+                    removeChannel(channel.get());
+                } else {
+                    // 对于没有 fd 的定时器（如内部 timer channel）仅重置索引
+                    channel->setHeapIndex(-1);
+                }
+
                 break;
             }
         }
-        
+
         // 释放event内存
         delete expired_event;
     }

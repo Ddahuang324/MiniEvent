@@ -75,6 +75,23 @@ void HttpServer::onMessage(const std::shared_ptr<BufferEvent>& bev, Buffer* buff
         return;
     }
 
+    // T026: 检查方法是否支持
+    if (req_ctx.method != "GET") {
+        log_warn("Unsupported HTTP method: %s", req_ctx.method.c_str());
+        std::string response_body = "<html><body><h1>501 Not Implemented</h1></body></html>";
+        std::stringstream response_ss;
+        response_ss << "HTTP/1.1 501 Not Implemented\r\n"
+                    << "Content-Type: text/html; charset=utf-8\r\n"
+                    << "Content-Length: " << response_body.length() << "\r\n"
+                    << "Connection: close\r\n"
+                    << "\r\n"
+                    << response_body;
+        std::string http_response = response_ss.str();
+        bev->write(http_response.data(), http_response.length());
+        bev->shutdown(); // 发送后关闭
+        return;
+    }
+
     log_info("Received HTTP Request: Method=%s, Path=%s", req_ctx.method.c_str(), req_ctx.path.c_str());
 
     // 2. 将解析后的请求上下文和用于响应的BufferEvent指针，一起交给MessageHandler处理
