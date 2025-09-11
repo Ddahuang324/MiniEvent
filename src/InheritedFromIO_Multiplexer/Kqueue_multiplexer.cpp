@@ -17,6 +17,7 @@ KqueueMultiplexer::KqueueMultiplexer()
 KqueueMultiplexer::~KqueueMultiplexer() {
     close(kq_fd_);
     std::cout << "[Kqueue] destroyed" << std::endl;
+    
 }
 
 void KqueueMultiplexer::addChannel(Channel* channel) {
