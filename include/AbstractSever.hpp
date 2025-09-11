@@ -12,7 +12,7 @@ public:
 
     void run(struct EventBase* base );
 
-    virtual int listen(struct EventBase* base) = 0;
+    virtual int listen(int port) = 0;
     
     virtual MessageHandler* createMsgHandler() = 0;
 
