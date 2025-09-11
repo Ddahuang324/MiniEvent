@@ -4,6 +4,7 @@
 #include <string>
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 
 
 
@@ -78,6 +79,20 @@ public:
 
     // 从文件描述符读取数据
     ssize_t readFd(int fd, int* savedErrno);
+
+    // 在可读数据中查找子串，返回指针（指向首次出现位置），未找到返回 nullptr
+    const char* find_str(const char* needle) const {
+        const char* start = peek();
+        const char* end = begin() + writeIndex_;
+        size_t needle_len = ::strlen(needle);
+        if (needle_len == 0) return start; // 空串返回起始
+        for (const char* p = start; p + needle_len <= end; ++p) {
+            if (std::memcmp(p, needle, needle_len) == 0) {
+                return p;
+            }
+        }
+        return nullptr;
+    }
 
 private:
     char* begin() { return &*buffer_.begin(); }
