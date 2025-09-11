@@ -90,7 +90,8 @@
         "compare": "cpp",
         "cerrno": "cpp",
         "thread": "cpp",
-        "fstream": "cpp"
+        "fstream": "cpp",
+        "deque": "cpp"
     },
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",

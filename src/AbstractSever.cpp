@@ -13,7 +13,8 @@ void AbstractServer::run(struct EventBase* base ) {
     if( !msgHandler_ ) {
         msgHandler_ = createMsgHandler();
     }
-    listen(base);
+    // 注意: 这里应该调用具体的 listen(port) 方法
+    // run 方法的逻辑可能需要重新设计
 }
 
 MessageHandler* AbstractServer::createMsgHandler() {
@@ -21,7 +22,5 @@ MessageHandler* AbstractServer::createMsgHandler() {
     return nullptr;
 }
 
-int AbstractServer::listen(struct EventBase* base) {
-    // 默认实现返回 -1，派生类应覆盖此方法以实现具体的监听逻辑
-    return -1;
-}
+// AbstractServer 不提供默认的 listen 实现，因为它是纯虚函数
+// 子类必须实现自己的 listen(int port) 方法

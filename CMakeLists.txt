@@ -65,4 +65,11 @@ if(SOURCES)
         add_executable(${PROJECT_NAME}_app src/main.cpp)
         target_link_libraries(${PROJECT_NAME}_app ${PROJECT_NAME})
     endif()
+
+    # Demo: http request
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/demo_http_request.cpp")
+        add_executable(demo_http_request demo_http_request.cpp)
+        target_link_libraries(demo_http_request ${PROJECT_NAME})
+        target_include_directories(demo_http_request PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    endif()
 endif()

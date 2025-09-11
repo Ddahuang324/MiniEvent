@@ -3,6 +3,7 @@
 #include "../include/Channel.hpp" // Ensure the full definition of Channel is included
 #include <cerrno>
 #include <unistd.h>
+#include <sys/socket.h>
 
 
 
@@ -69,23 +70,23 @@ void BufferEvent::handleRead() {
 void BufferEvent::handleWrite() {
   // 如果 channel 正在进行写操作
   if(channel_-> isWriting()){
-    ssize_t n  = ::write(fd_, outputBuffer_.peek(), outputBuffer_.readableBytes());
-  // 如果写操作成功
-  if(n > 0){
-    outputBuffer_.retrieve(n);
-    // 如果输出缓冲区已无可读取的数据
+    // 无数据 => 连接建立阶段，关闭写监听防止busy loop
     if(outputBuffer_.readableBytes() == 0){
+      if(writeCallback_) writeCallback_(shared_from_this());
       channel_->disableWriting();
-      // 如果有写操作完成回调函数，则调用
-      if(writeCallback_){
-        writeCallback_(shared_from_this());
-      }
+      return;
     }
-  }else{
-    // 处理写操作错误
-    handleError();
+    ssize_t n  = ::write(fd_, outputBuffer_.peek(), outputBuffer_.readableBytes());
+    if(n > 0){
+      outputBuffer_.retrieve(n);
+      if(outputBuffer_.readableBytes() == 0){
+        channel_->disableWriting();
+        if(writeCallback_) writeCallback_(shared_from_this());
+      }
+    } else if(n < 0){
+      handleError();
+    }
   }
-}
 }
 
 void BufferEvent::write(const void* data, size_t len) {
@@ -131,4 +132,16 @@ void BufferEvent::handleError() {
     if (errorCallback_) {
         errorCallback_(shared_from_this());
     }
+}
+
+void BufferEvent::shutdown() {
+    // 关闭写端，触发关闭事件
+    ::shutdown(fd_, SHUT_WR);
+    // 停止监听写事件
+    channel_->disableWriting();
+}
+
+void BufferEvent::enableWriting() {
+    // 启用写事件监听
+    channel_->enableWriting();
 }

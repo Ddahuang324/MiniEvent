@@ -35,6 +35,7 @@ public:
     void connectEstablished();
     void write(const void* data, size_t len);
     void shutdown();
+    void enableWriting(); // 启用写事件监听
 
 
 

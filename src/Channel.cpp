@@ -19,7 +19,11 @@ Channel::~Channel(){}
 
 // --- 处理事件 ---
 void Channel::handleEvent(){
-    // 优先调用统一事件回调
+    // 如果设置了统一事件回调（例如 BufferEvent 绑定的 handleEvent），优先调用并直接返回
+    if(event_callback_){
+        event_callback_();
+        return;
+    }
     // 否则按事件类型分别回调
     if(ready_events_ & kReadEvent){
         if(read_callback_ != nullptr) read_callback_();
