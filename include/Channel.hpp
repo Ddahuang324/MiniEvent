@@ -69,20 +69,20 @@ public:
 
 private:
     void update(); // 更新事件掩码
-    
+
     EventBase* loop_;
-    const int fd_;
+    int fd_;
 
     int events_;
     int ready_events_; // 已经准备好的事件掩码
 
-     // 回调函数
+    // 回调函数
     EventCallback read_callback_;
     EventCallback write_callback_;
     EventCallback error_callback_;
     EventCallback close_callback_; // 用于连接关闭的回调
     EventCallback event_callback_; // 统一事件回调
-    
+
     // ================== [新增] 定时器相关 ==================
     EventCallback timer_callback_;   // 定时器回调
     uint64_t timeout_;              // 绝对超时时间戳

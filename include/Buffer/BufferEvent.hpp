@@ -49,7 +49,7 @@ private:
     void forceClose();
 
     EventBase* loop_;
-    const int fd_;
+    int fd_;
     std::unique_ptr<Channel> channel_;
     Buffer inputBuffer_;
     Buffer outputBuffer_;

@@ -25,7 +25,7 @@ BufferEvent::~BufferEvent() {
   if(channel_ -> isNoneEvent()) {
     loop_->removeChannel(channel_.get());
   }
-  ::close(fd_);
+  // fd_ 的关闭交由 Channel 析构自动完成
 }
 
 

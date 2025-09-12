@@ -17,7 +17,12 @@ Channel::Channel(EventBase* loop, int fd)
 }
 
 // --- 析构函数 ---
-Channel::~Channel(){}
+Channel::~Channel(){
+    if (fd_ >= 0) {
+        ::close(fd_);
+        fd_ = -1;
+    }
+}
 
 Channel::EventCallback Channel::getEventCallback() const { return event_callback_; }
 
