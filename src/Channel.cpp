@@ -122,4 +122,3 @@ void Channel::disableAll() {
 void Channel::update() {
     loop_->updateChannel(this);
 }
-

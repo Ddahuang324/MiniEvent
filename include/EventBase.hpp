@@ -4,11 +4,13 @@
 #include "Channel.hpp"
 #include "DataStructure/min_heap.hpp"
 #include "Platform.hpp"
+
 #include <memory>
 #include <functional>
 #include <vector>
 #include <map>
 #include <cstdint>
+#include "MultiThread/ThreadPool_副本.hpp"
 
 
 // [新增] 为最小堆定义比较器
@@ -24,7 +26,7 @@ struct ChannelTimeoutComparator
 class EventBase
 {
 public:
-    EventBase();
+    EventBase(size_t thread_num = 0);
     ~EventBase();
 
     // 启动事件循环
@@ -58,4 +60,8 @@ private:
     min_heap_t timer_heap_;
     std::vector<std::shared_ptr<Channel>> expired_timer_channels_;
     std::function<void(int)> timeout_observer_;
+
+    // [新增] 线程池指针（可选）
+    std::unique_ptr<ThreadPool> thread_pool_;
+    size_t thread_num_;
 };

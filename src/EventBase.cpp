@@ -9,12 +9,12 @@
 #include <chrono>
 
 
-EventBase::EventBase() :
-    quit_(false)
+EventBase::EventBase(size_t thread_num)
+    : quit_(false), thread_num_(thread_num)
 {
     // 初始化最小堆
     min_heap_ctor(&timer_heap_);
-    
+
     // 通过选择器基于平台与微基准选出最快实现
     io_multiplexer_ = choose_best_multiplexer();
 
@@ -22,6 +22,11 @@ EventBase::EventBase() :
     if (!io_multiplexer_) {
         log_error("Failed to create IO multiplexer.");
         abort();
+    }
+
+    // [新增] 初始化线程池（如指定线程数>0）
+    if (thread_num_ > 0) {
+        thread_pool_ = std::make_unique<ThreadPool>(thread_num_);
     }
 }
 
@@ -49,7 +54,13 @@ void EventBase::loop()
         // 处理 I/O 事件
         for (Channel *channel : active_channels_)
         {
-            channel->handleEvent();
+            if (thread_pool_) {
+                // 多线程：将回调投递到线程池
+                thread_pool_->enqueue([channel](){ channel->handleEvent(); });
+            } else {
+                // 单线程：直接调用
+                channel->handleEvent();
+            }
         }
 
         // [修改] 核心修改点 2: 处理到期的定时器事件
