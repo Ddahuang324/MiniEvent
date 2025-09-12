@@ -13,7 +13,11 @@ BufferEvent::BufferEvent(EventBase* loop, int fd)
       fd_(fd),
       channel_(new Channel(loop, fd))
     {
-    channel_->setEventCallback(std::bind(&BufferEvent::handleEvent, this));
+  // 注册各类事件回调，避免在 BufferEvent 内再次做事件类型分发
+  channel_->setReadCallback(std::bind(&BufferEvent::handleRead, this));
+  channel_->setWriteCallback(std::bind(&BufferEvent::handleWrite, this));
+  channel_->setErrorCallback(std::bind(&BufferEvent::handleError, this));
+  channel_->setCloseCallback(std::bind(&BufferEvent::handleClose, this));
     }
 
 BufferEvent::~BufferEvent() {
@@ -34,26 +38,7 @@ void BufferEvent::connectEstablished() {
     channel_->enableReading();
 }
 
-void BufferEvent::handleEvent(){
-
-  int readyEvents = channel_->getReadyEvents();
-
-  // 如果通道上有错误事件发生，则调用错误处理函数
-  if (readyEvents & (Channel::kErrorEvent)) {
-    handleError();
-  }
-
-  // 如果通道上有可读事件或错误事件发生，则调用读取处理函数
-  if (readyEvents & (Channel::kReadEvent | Channel::kErrorEvent)) {
-    handleRead();
-  }
-
-  // 如果通道上有可写事件发生，则调用写入处理函数
-  if (readyEvents & Channel::kWriteEvent) {
-    handleWrite();
-  }
-
-}
+// 事件分发已交由 Channel 调用各自回调，BufferEvent 不再实现统一的 handleEvent
 
 void BufferEvent::handleRead() {
   int savedErrno = 0;

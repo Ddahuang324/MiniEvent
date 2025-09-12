@@ -98,7 +98,8 @@
         "list": "cpp",
         "set": "cpp",
         "unordered_set": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "future": "cpp"
     },
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",

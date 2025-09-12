@@ -41,7 +41,6 @@ public:
 
 private:
 
-    void handleEvent();
     void handleRead();
     void handleWrite();
     void handleError();

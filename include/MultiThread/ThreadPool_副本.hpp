@@ -51,7 +51,7 @@ inline ThreadPool::ThreadPool(size_t threads) : stop(false) {
 
 //enqueue函数模板：将任务添加到队列
 template<class F, class... Args>
-auto ThreadPool::enqueue(F&& f, Args&&... a -gs) -> std::future<typename std::result_of<F(Args...)>::type> {
+auto ThreadPool::enqueue(F&& f, Args&&... args) -> std::future<typename std::result_of<F(Args...)>::type> {
     using return_type = typename std::result_of<F(Args...)>::type;
     auto task = std::make_shared<std::packaged_task<return_type()>>(std::bind(std::forward<F>(f), std::forward<Args>(args)...));
     std::future<return_type> res = task->get_future();
