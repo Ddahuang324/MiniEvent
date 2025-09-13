@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <iostream>
 #include <chrono>
+#include <fcntl.h>
 
 
 EventBase::EventBase(size_t thread_num)
@@ -24,9 +25,24 @@ EventBase::EventBase(size_t thread_num)
         abort();
     }
 
-    // [新增] 初始化线程池（如指定线程数>0）
-    if (thread_num_ > 0) {
-        thread_pool_ = std::make_unique<ThreadPool>(thread_num_);
+    // 记录线程 id（构造阶段尚未进入 loop，先设成当前线程，loop() 中会再次确认）
+    loop_thread_id_ = std::this_thread::get_id();
+
+    // 初始化线程池（仅用于业务任务，不直接执行 Channel::handleEvent）
+    if (thread_num_ > 0) thread_pool_ = std::make_unique<ThreadPool>(thread_num_);
+
+    // 建立唤醒 pipe
+    if (::pipe(wakeup_fds_) == 0) {
+        // 将 pipe 的读端设为非阻塞
+        int flags = ::fcntl(wakeup_fds_[0], F_GETFL, 0);
+        ::fcntl(wakeup_fds_[0], F_SETFL, flags | O_NONBLOCK);
+
+        // 创建 wakeup channel (只读监听)
+        wakeup_channel_ = std::make_unique<Channel>(this, wakeup_fds_[0]);
+        wakeup_channel_->setReadCallback([this]{ handleWakeup(); });
+        wakeup_channel_->enableReading();
+    } else {
+        log_warn("Failed to create wakeup pipe; cross-thread wakeup disabled.");
     }
 }
 
@@ -40,6 +56,15 @@ EventBase::~EventBase()
 void EventBase::loop()
 {
     std::cout << "EventBase loop start." << std::endl;
+    loop_thread_id_ = std::this_thread::get_id();
+    
+    // 调试：检查 wakeup channel 是否正确注册
+    if (wakeup_channel_) {
+        std::cerr << "[EventBase] wakeup channel fd=" << wakeup_channel_->fd() << " registered" << std::endl;
+    } else {
+        std::cerr << "[EventBase] ERROR: wakeup channel not created!" << std::endl;
+    }
+    
     while (!quit_)
     {
         active_channels_.clear();
@@ -50,18 +75,24 @@ void EventBase::loop()
 
         // 调用 I/O 多路复用等待事件
         io_multiplexer_->dispatch(static_cast<int>(timeoutMs), active_channels_);
+        
+        // 调试：显示活跃的 channels
+        if (!active_channels_.empty()) {
+            std::cerr << "[EventBase] active channels: ";
+            for (Channel* ch : active_channels_) {
+                std::cerr << "fd=" << ch->fd() << " ";
+            }
+            std::cerr << std::endl;
+        }
 
         // 处理 I/O 事件
-        for (Channel *channel : active_channels_)
-        {
-            if (thread_pool_) {
-                // 多线程：将回调投递到线程池
-                thread_pool_->enqueue([channel](){ channel->handleEvent(); });
-            } else {
-                // 单线程：直接调用
-                channel->handleEvent();
-            }
+        for (Channel *channel : active_channels_) {
+            // 不再把 channel->handleEvent() 放进线程池，保持 I/O 单线程安全
+            channel->handleEvent();
         }
+
+        // 处理跨线程提交的任务
+        doPendingTasks();
 
         // [修改] 核心修改点 2: 处理到期的定时器事件
         handleExpiredTimers();
@@ -124,6 +155,75 @@ bool EventBase::hasChannel(Channel *channel)
 
 void EventBase::setTimeoutObserver(std::function<void(int)> observer) {
     timeout_observer_ = std::move(observer);
+}
+
+void EventBase::runInLoop(const std::function<void()>& cb) {
+    if (isInLoopThread()) {
+    std::cerr << "[EventBase] runInLoop immediate execute" << std::endl;
+        cb();
+    } else {
+    std::cerr << "[EventBase] runInLoop queue from other thread" << std::endl;
+        queueInLoop(cb);
+    }
+}
+
+void EventBase::queueInLoop(const std::function<void()>& cb) {
+    {
+        std::lock_guard<std::mutex> lock(pending_mutex_);
+        pending_tasks_.push_back(cb);
+    std::cerr << "[EventBase] queueInLoop size=" << pending_tasks_.size() << std::endl;
+    }
+    if (!isInLoopThread()) {
+        wakeup();
+    }
+}
+
+void EventBase::executeInWorker(const std::function<void()>& task) {
+    if (thread_pool_) {
+        thread_pool_->enqueue(task);
+    } else {
+        // 没有线程池则直接执行
+        task();
+    }
+}
+
+void EventBase::wakeup() {
+    if (wakeup_fds_[1] >= 0) {
+        uint64_t one = 1;
+        ::write(wakeup_fds_[1], &one, sizeof(one));
+    std::cerr << "[EventBase] wakeup write" << std::endl;
+    }
+}
+
+void EventBase::handleWakeup() {
+    uint64_t buf;
+    while (::read(wakeup_fds_[0], &buf, sizeof(buf)) > 0) {
+        // drain
+    }
+    size_t pending_snapshot = 0;
+    {
+        std::lock_guard<std::mutex> lock(pending_mutex_);
+        pending_snapshot = pending_tasks_.size();
+    }
+    std::cerr << "[EventBase] handleWakeup pending_now=" << pending_snapshot << std::endl;
+    // 立即执行（原本在 loop 一轮末尾才执行），加速跨线程写回
+    if (pending_snapshot > 0 && !calling_pending_) {
+        doPendingTasks();
+    }
+}
+
+void EventBase::doPendingTasks() {
+    std::vector<std::function<void()>> tasks;
+    calling_pending_ = true;
+    {
+        std::lock_guard<std::mutex> lock(pending_mutex_);
+        tasks.swap(pending_tasks_);
+    }
+    if(!tasks.empty()) std::cerr << "[EventBase] executing pending tasks count=" << tasks.size() << std::endl;
+    for (auto &fn : tasks) {
+        try { fn(); } catch (...) { log_error("Exception in pending task"); }
+    }
+    calling_pending_ = false;
 }
 
 // [新增] 获取当前时间（毫秒）

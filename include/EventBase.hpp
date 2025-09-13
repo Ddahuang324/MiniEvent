@@ -11,6 +11,11 @@
 #include <map>
 #include <cstdint>
 #include "MultiThread/ThreadPool_副本.hpp"
+#include <thread>
+#include <mutex>
+#include <functional>
+#include <atomic>
+
 
 
 // [新增] 为最小堆定义比较器
@@ -43,6 +48,13 @@ public:
     // Test hook: observer invoked with fd when a connection times out.
     void setTimeoutObserver(std::function<void(int)> observer);
 
+    // 线程相关：在事件循环线程执行函数；若在其它线程调用则排队并唤醒
+    void runInLoop(const std::function<void()>& cb);
+    void queueInLoop(const std::function<void()>& cb); // 总是排队
+    bool isInLoopThread() const { return std::this_thread::get_id() == loop_thread_id_; }
+    // 提交到工作线程池（仅业务计算），完成后应再回到 loop 线程做 I/O
+    void executeInWorker(const std::function<void()>& task);
+
 private:
     // [新增] 定时器相关私有方法
     void addTimer(std::shared_ptr<Channel> channel);
@@ -64,4 +76,15 @@ private:
     // [新增] 线程池指针（可选）
     std::unique_ptr<ThreadPool> thread_pool_;
     size_t thread_num_;
+
+    // =========== 新增：跨线程任务队列与唤醒机制 ===========
+    std::thread::id loop_thread_id_;
+    std::vector<std::function<void()>> pending_tasks_;
+    std::mutex pending_mutex_;
+    bool calling_pending_ = false;
+    int wakeup_fds_[2] = {-1,-1}; // pipe[0]=read, pipe[1]=write
+    std::unique_ptr<Channel> wakeup_channel_;
+    void wakeup();
+    void handleWakeup();
+    void doPendingTasks();
 };

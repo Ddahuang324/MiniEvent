@@ -39,6 +39,16 @@ void Channel::handleEvent(){
         return;
     }
 
+    // 调试输出当前就绪事件情况
+    std::cerr << "[Channel] handleEvent fd=" << fd_ 
+              << " ready_events=" << ready_events_ 
+              << " events(mask)=" << events_
+              << " has(event)=" << (event_callback_?1:0)
+              << " has(read)=" << (read_callback_?1:0)
+              << " has(write)=" << (write_callback_?1:0)
+              << " has(error)=" << (error_callback_?1:0)
+              << std::endl;
+
     // 如果设置了统一事件回调（例如 BufferEvent 绑定的 handleEvent），优先调用并直接返回
     if(event_callback_){
         // Protect against the callback destroying this Channel during execution.
@@ -62,7 +72,11 @@ void Channel::handleEvent(){
         if(read_callback_ != nullptr) {
             std::shared_ptr<Channel> guard;
             try { guard = shared_from_this(); } catch(...) {}
-            try { read_callback_(); } catch (const std::exception &ex) {
+            try {
+                std::cerr << "[Channel] invoking read_callback fd=" << fd_ << std::endl;
+                read_callback_();
+                std::cerr << "[Channel] read_callback returned fd=" << fd_ << std::endl;
+            } catch (const std::exception &ex) {
                 log_error("Exception in read_callback for fd=%d: %s", fd_, ex.what());
             } catch (...) {
                 log_error("Unknown exception in read_callback for fd=%d", fd_);
@@ -73,7 +87,11 @@ void Channel::handleEvent(){
         if(write_callback_ != nullptr) {
             std::shared_ptr<Channel> guard;
             try { guard = shared_from_this(); } catch(...) {}
-            try { write_callback_(); } catch (const std::exception &ex) {
+            try {
+                std::cerr << "[Channel] invoking write_callback fd=" << fd_ << std::endl;
+                write_callback_();
+                std::cerr << "[Channel] write_callback returned fd=" << fd_ << std::endl;
+            } catch (const std::exception &ex) {
                 log_error("Exception in write_callback for fd=%d: %s", fd_, ex.what());
             } catch (...) {
                 log_error("Unknown exception in write_callback for fd=%d", fd_);
@@ -84,7 +102,11 @@ void Channel::handleEvent(){
         if(error_callback_ != nullptr) {
             std::shared_ptr<Channel> guard;
             try { guard = shared_from_this(); } catch(...) {}
-            try { error_callback_(); } catch (const std::exception &ex) {
+            try {
+                std::cerr << "[Channel] invoking error_callback fd=" << fd_ << std::endl;
+                error_callback_();
+                std::cerr << "[Channel] error_callback returned fd=" << fd_ << std::endl;
+            } catch (const std::exception &ex) {
                 log_error("Exception in error_callback for fd=%d: %s", fd_, ex.what());
             } catch (...) {
                 log_error("Unknown exception in error_callback for fd=%d", fd_);

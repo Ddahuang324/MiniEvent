@@ -3,9 +3,11 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-int main() {
-    const char* server_ip = "127.0.0.1"; // 服务器 IP
-    const int server_port = 12345;      // 服务器端口
+int main(int argc, char** argv) {
+    const char* server_ip = "127.0.0.1"; // 默认服务器 IP
+    int server_port = 12345;              // 默认服务器端口
+    if (argc >= 2) server_ip = argv[1];
+    if (argc >= 3) server_port = std::atoi(argv[2]);
 
     // 创建套接字
     int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -32,15 +34,22 @@ int main() {
     }
 
     std::cout << "Connected to server " << server_ip << ":" << server_port << std::endl;
+    std::cout << "Type messages and press Enter. Type 'exit' to quit." << std::endl;
 
     // 与服务器交互
     char buffer[1024];
     while (true) {
         std::cout << "Enter message: ";
         std::string message;
-        std::getline(std::cin, message);
+        
+        // 检查是否还有输入可读（处理管道输入）
+        if (!std::getline(std::cin, message)) {
+            std::cout << "No more input, closing connection." << std::endl;
+            break;
+        }
 
         if (message == "exit") {
+            std::cout << "Exit command received, closing connection." << std::endl;
             break;
         }
 
@@ -49,6 +58,7 @@ int main() {
             perror("send");
             break;
         }
+        std::cout << "[debug] sent " << message.size() << " bytes" << std::endl;
 
         // 接收回显数据
         ssize_t bytes_received = recv(sock, buffer, sizeof(buffer) - 1, 0);
@@ -61,9 +71,7 @@ int main() {
         }
 
         buffer[bytes_received] = '\0'; // 确保字符串以 null 结尾
-        std::cout << "Echo from server: " << buffer << std::endl;
-    }
-
-    ::close(sock);
+        std::cout << buffer << std::endl;  // 直接输出回显，不加前缀
+    }    ::close(sock);
     return 0;
 }

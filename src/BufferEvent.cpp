@@ -25,10 +25,8 @@ BufferEvent::~BufferEvent() {
   if (channel_) {
     channel_->clearCallbacks();
   }
-
-  if(channel_ -> isNoneEvent()) {
-    loop_->removeChannel(channel_.get());
-  }
+  // 不在析构阶段主动 removeChannel：生命周期应该由主动关闭流程控制
+  // 防止已经在 handleClose 中移除后再调用 remove 引发断言
   // fd_ 的关闭交由 Channel 析构自动完成
 }
 
@@ -113,6 +111,10 @@ void BufferEvent::write(const void* data, size_t len) {
 void BufferEvent::handleClose() {
   // 停止所有事件监听并清除回调，随后调用外部 closeCallback
   channel_->disableAll(); // 停止所有事件监听
+  // 从 EventBase 中移除（防止后续再触发 updateChannel 导致断言）
+  if (loop_->hasChannel(channel_.get())) {
+    loop_->removeChannel(channel_.get());
+  }
   // 先交换回调，防止回调中再次触发删除导致双重调用
   auto cb = closeCallback_;
   closeCallback_ = nullptr;
